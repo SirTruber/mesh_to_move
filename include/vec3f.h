@@ -13,7 +13,14 @@ public:
 
 	Vec3f(float a = 0, float b = 0, float c = 0) : x(a), y(b), z(c) {};
 
-	Vec3f & fill (float d = 0) : x(d), y(d), z(d) {};
+	Vec3f & fill (float d = 0)
+	{
+		x = d;
+		y = d;
+		z = d;
+
+		return * this;
+	}
 
 	Vec3f operator - ()
 	{
@@ -52,6 +59,14 @@ public:
         return * this;
 	};
 
+	Vec3f & operator *= ( const float c)
+	{
+		x *= c;
+        y *= c;
+        z *= c;
+        return * this;
+	};
+
 	Vec3f & operator /= ( const float c)
 	{
 		x /= c;
@@ -77,7 +92,7 @@ public:
 		}
 		return * this;
 	}
-}
+};
 
 inline bool operator == ( const Vec3f & a, const Vec3f & b)
 {
@@ -101,7 +116,7 @@ inline Vec3f operator - ( const Vec3f & a, const Vec3f & b)
 	return Vec3f ( a.x - b.x, a.y - b.y, a.z - b.z );
 };
 
-inline Vec3f operator * ( const Vec3f & vec, float c);
+inline Vec3f operator * ( const Vec3f & vec, float c)
 {
 	return Vec3f (vec.x * c, vec.y * c, vec.z * c);
 };
@@ -111,7 +126,7 @@ inline Vec3f operator * ( float c, const Vec3f & vec)
 	return Vec3f (vec.x * c, vec.y * c, vec.z * c);
 };
 
-inline Vec3f operator / ( const Vec3f & vec, float c);
+inline Vec3f operator / ( const Vec3f & vec, float c)
 {
 	return Vec3f (vec.x / c, vec.y / c, vec.z / c);
 };
@@ -128,7 +143,7 @@ inline Vec3f operator % (const Vec3f & a, const Vec3f & b)
 				 a.x * b.y - a.y * b.x);
 }
 
-float norm(const Vec3f & vec)
+inline float norm(const Vec3f & vec)
 {
 	return std::sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z);
 }
