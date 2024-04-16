@@ -94,20 +94,26 @@ void Poly3gon::push_back(const Vertex& v1, const Vertex& v2, const Vertex& v3)
 {
     int v_n[3] = {-1, -1, -1};
     const Vertex * v_old[3] = {&v1, &v2, &v3};
+    // for (size_t i = 0; i < v.size(); ++i)
+    // {
+    //     for (size_t j = 0; j < 3; ++j)
+    //         if (v_n[j] == -1 && *v[i] == *v_old[j])
+    //             v_n[j] = i;
+    // }
 
-    for (size_t i = 0; i < v.size(); ++i)
+    for (size_t i = 0; i < 3; ++i)
     {
-        for (size_t j = 0; j < 3; ++j)
-            if (v_n[j] == -1 && *v[i] == *v_old[j])
-                v_n[j] = i;
-    }
-
-    for (size_t j = 0; j < 3; ++j)
-    {
-        if (v_n[j] == -1)
+        std::string hash = std::to_string(v_old[i]->pos.x) + std::to_string(v_old[i]->pos.y) + std::to_string(v_old[i]->pos.z);
+        auto it = _unique_v.find(hash);
+        if (it != _unique_v.end())
         {
-            v.push_back(std::make_shared<Vertex>(v_old[j]->pos));
-            v_n[j] = v.size() - 1;
+            v_n[i] = static_cast<int>(it->second);
+        }
+        else
+        {
+            v.push_back(std::make_shared<Vertex>(v_old[i]->pos));
+            v_n[i] = v.size() - 1;
+            _unique_v.emplace(hash, v_n[i]);
         }
     }
 
@@ -160,6 +166,7 @@ bool Poly3gon::loadSTLBin (const std::string& filename, std::string& text)
 
         this->push_back(vec[0],vec[1],vec[2]);
     }
+    _unique_v.clear();
     input.close();
     return true;
 };
@@ -253,4 +260,25 @@ float Poly3gon::area()
         total_area += f[i]->area();
 
     return total_area;
+}
+
+
+std::size_t VHash::operator()(const mesh::Vertex* v) const noexcept
+{
+    size_t hash;
+    const float pos[3] = {v->pos.x,
+                          v->pos.y,
+                          v->pos.z};
+    const unsigned char *key  = reinterpret_cast<const unsigned char *> (pos);
+
+    for (size_t i = 0; i < 3 ; ++i)
+    {
+        hash += std::hash<float>{}(pos[i]);
+        hash += (hash << 10);
+        hash ^= (hash >> 6);
+    }
+    hash += (hash << 3);
+    hash ^= (hash >> 11);
+    hash += (hash << 15);
+    return hash;
 }

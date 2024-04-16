@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <unordered_map>
 
 #include "vec3f.h"
 
@@ -25,6 +26,12 @@ public:
 Vec3f operator - (const Vertex & a, const Vertex & b);
 bool operator == (const Vertex & a, const Vertex & b);
 bool operator != (const Vertex & a, const Vertex & b);
+
+
+struct VHash
+{
+    std::size_t operator()(const mesh::Vertex* v) const noexcept; // Jenkins one-at-a-time hash
+};
 
 class Facet
 {
@@ -58,6 +65,9 @@ public:
 
     float volume();
     float area();
+private:
+    std::unordered_map< std::string ,size_t> _unique_v;
 };
 }
+
 
