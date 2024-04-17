@@ -1,5 +1,7 @@
 #include <iostream>
 #include <vector>
+#include <queue>
+#include <unordered_set>
 
 #include "../include/mesh.h"
 
@@ -27,98 +29,116 @@ inline bool equals(const std::weak_ptr<T> t, const std::shared_ptr<U> u)
 //     for (size_t )
 // }
 
-std::vector<Weak_ver> find_adjacent(Shared_ver& ver)
+// std::vector<Weak_ver> find_adjacent(Shared_ver& ver)
+// {
+//     std::vector <Weak_ver> res;
+//     for (size_t i = 0; i < ver->f.size();++i)
+//     {
+//         Shared_tr triangle = ver->f[i].lock();
+//
+//         if(!triangle)
+//             continue;
+//
+//         for(size_t j = 0; j < 3; ++j)
+//         {
+//             Weak_ver tmp = triangle->v[j];
+//             bool was_find = false;
+//
+//             for (size_t k = 0; k < res.size(); ++k )
+//             {
+//                 if(equals(res[k],tmp))
+//                     was_find = true;
+//             }
+//             if(!was_find)
+//                 res.push_back(tmp);
+//         }
+//     }
+//     return res;
+// }
+
+// mesh::Vec3f compute_displacement(Shared_ver ver, double radius_smoothing)
+// {
+//     mesh::Vec3f start(ver->pos);
+//     mesh::Vec3f end;
+//     std::queue<mesh::Vertex *> close_points;
+//     std::unordered_set<std::string> points_counter;
+//
+//     close_points.push(ver.get());
+//     std::string hash = std::to_string(start.x) + std::to_string(start.y) + std::to_string(start.z);
+//     points_counter.emplace(hash);
+//
+//     float mass = 0;
+//     double r_inv = 1/radius_smoothing;
+//     while ( !close_points.empty() )
+//     {
+//         mesh::Vertex & root_ver = * close_points.front();
+//         for (size_t i = 0; i < root_ver.f.size(); ++i)
+//         {
+//             mesh::Facet & root_tr = *root_ver.f[i].lock();
+//             for(size_t j = 0; j < 3; ++j)
+//             {
+//                 mesh::Vertex & selected_ver = *root_tr.v[j].lock();
+//                 hash = std::to_string(selected_ver.pos.x) + std::to_string(selected_ver.pos.y) + std::to_string(selected_ver.pos.z);
+//                 if(
+//                     (points_counter.find(hash) == points_counter.end()) &&
+//                     (norm(selected_ver.pos - start) < radius_smoothing)
+//                 )
+//                 {
+//                     close_points.push(&selected_ver);
+//                     points_counter.emplace(hash);
+//                 }
+//             }
+//         }
+//         close_points.pop();
+//         float m = static_cast<float>(1 - norm(root_ver.pos) * r_inv);
+//         end += root_ver.pos * m;
+//         mass += m;
+//     }
+//     end /= mass;
+//     return end;
+// }
+
+void convert (mesh::Poly3gon& data,double radius_smoothing = 1,double smooth_coef = 1)
 {
-    std::vector <Weak_ver> res;
-    for (size_t i = 0; i < ver->f.size();++i)
+    size_t size = data.v.size();
+    double r_inv = 1/radius_smoothing;
+    //std::vector<float> distance_map(size * (size - 1) / 2 );
+    std::vector<mesh::Vec3f> shift(size);
+    for(size_t i = 0; i < size; ++i)
     {
-        Shared_tr triangle = ver->f[i].lock();
-
-        if(!triangle)
-            continue;
-
-        for(size_t j = 0; j < 3; ++j)
+        float mass = 0;
+        mesh::Vec3f b;
+        for(size_t j = 0; j < size; ++j)
         {
-            Weak_ver tmp = triangle->v[j];
-            bool was_find = false;
-
-            for (size_t k = 0; k < res.size(); ++k )
+            const float distance = mesh::norm(data.v[i]->pos - data.v[j]->pos);
+            //distance_map.push_back(distance);
+            if (distance < radius_smoothing)
             {
-                if(equals(res[k],tmp))
-                    was_find = true;
+                const float m = static_cast<float>(1 - distance * r_inv);
+                b += data.v[j]->pos * m;
+                mass += m;
             }
-            if(!was_find)
-                res.push_back(tmp);
         }
-    }
-    return res;
-}
 
-mesh::Vec3f compute_displacement(Shared_ver& ver, double radius_smoothing)
-{
-    mesh::Vec3f start(ver->pos);
-    mesh::Vec3f end ;
-    std::vector<Shared_ver> close_points;
-
-    close_points.push_back(ver);
-
-    for (size_t i = 0; i < close_points.size(); ++i)
-    {
-        std::vector<Weak_ver> tmp (find_adjacent(close_points[i]));
-
-        // for(size_t j = 0; j < tmp.size(); ++j)
+        // for(size_t j = 0 ; j < i; ++j)
         // {
-        //     Shared_ver t = tmp[j].lock();
-        //
-        //     if(!t)
-        //         continue;
-        //
-        //     mesh::Vec3f shift = t->pos - start;
-        //     float distance = norm(shift);
-        //     bool was_find = false;
-        //
-        //     if(distance >= radius_smoothing)
-        //         break;
-        //
-        //     for(size_t k = 0; k < close_points.size(); ++k)
+        //     const float distance = distance_map[i + j * size];
+        //     if(distance < radius_smoothing)
         //     {
-        //         if(t == close_points[k])
-        //             was_find = true;
-        //     }
-        //
-        //     if(!was_find )
-        //     {
-        //         close_points.push_back(t);
-        //         shift*= static_cast<float>(1.0 - distance/radius_smoothing);
-        //
-        //         end += shift;
+        //         const float m = static_cast<float>(1 - distance * r_inv);
+        //         b += data.v[j]->pos * m;
+        //         mass += m;
         //     }
         // }
-        for(size_t i = 0; i < tmp.size(); ++i)
-        {
-            end += tmp[i].lock()->pos;
-        }
-        end /= tmp.size();
+        if (mass > 0.0f)
+            b /= mass;
+        shift[i] = (1 - smooth_coef) * b + smooth_coef * data.v[i]->pos;
     }
-    return end;
-}
 
-void convert (mesh::Poly3gon& data,double radius_smoothing = 1)
-{
-    mesh::Poly3gon& new_data(data);
-
-    for(size_t i = 0; i < new_data.v.size(); ++i)
+    for(size_t i = 0; i < shift.size(); ++i)
     {
-        if(data.v[i])
-        {
-            mesh::Vec3f b(compute_displacement(new_data.v[i], radius_smoothing));
-
-            mesh::Vec3f old = new_data.v[i]->pos;
-            mesh::Vec3f shift = old - b;
-            data.v[i]->mov(b + radius_smoothing * shift);
-        }
+        data.v[i]->mov(shift[i]);
     }
-    data = new_data;
 }
 // void convert( mesh::Poly3gon& data)
 // {
@@ -153,7 +173,7 @@ void convert (mesh::Poly3gon& data,double radius_smoothing = 1)
 
 int main(int argc, char ** argv)
 {
-    if(argc != 3)
+    if(argc != 4)
     {
         std::cerr<< "too low argument" << std::endl;
         exit (-2);
@@ -163,7 +183,8 @@ int main(int argc, char ** argv)
     std::string file(argv[1]);
     file = file.substr(0,file.size() - 4);
     float start_volume = 0;
-    double argument = std::atof(argv[2]);
+    double smooth_coef = std::atof(argv[2]);
+    double radius_smoothing = std::atof(argv[3]);
 
     if(res.loadSTLBin(std::string(file + ".stl"), text))
     {
@@ -177,7 +198,7 @@ int main(int argc, char ** argv)
     }
     //saveSTLBin(std::string(file + "_save.stl"), text, res);
 
-    convert(res, argument);
+    convert(res, radius_smoothing, smooth_coef);
         //std::cout << "volume:" << get_volume(res)<< std::endl;
 
     std::cout << res.volume() << " = " <<100.0 * (start_volume - res.volume()) / start_volume  <<" %" << std::endl;
