@@ -1,10 +1,14 @@
 #include <iostream>
 #include <vector>
 #include <queue>
-#include <unordered_set>
+#include <list>
+#include <utility>
+#include <ctime>
+//#include <unordered_set>
 
 #include "../include/mesh.h"
 
+#define MAX_CACHE 1000000000;
 typedef std::weak_ptr<mesh::Vertex>  Weak_ver;
 typedef std::shared_ptr<mesh::Vertex> Shared_ver;
 typedef std::shared_ptr<mesh::Facet> Shared_tr;
@@ -21,6 +25,62 @@ inline bool equals(const std::weak_ptr<T> t, const std::shared_ptr<U> u)
     return !t.owner_before(u) && !u.owner_before(t);
 }
 
+struct line
+{
+    std::queue<float> value;
+    std::queue<size_t> column;
+};
+
+class Cache_crm
+{
+public:
+    size_t breakage = 0;
+    size_t count = 0;
+public:
+    Cache_crm(size_t size) :_data(size)
+    {};
+
+    bool operator ()()
+    {
+        return !_breakpoint;
+    }
+    bool push( std::queue<size_t> & distance,std::queue<float> & val)
+    {
+        if (_breakpoint)
+            return false;
+
+        count += val.size();
+
+        if (count > _max_size)
+            _breakpoint = true;
+
+        auto it = _data.begin();
+        while(!val.empty())
+        {
+            for(size_t j = 0; j < distance.front(); ++j)
+                ++it;
+
+            it->value.push(val.front());
+            it->column.push(breakage + distance.front());
+            distance.pop();
+            val.pop();
+        }
+        ++breakage;
+        return true;
+    }
+    size_t pop(std::queue<size_t> & move_column, std::queue<float> & move_value)
+    {
+        move_value = std::move(_data.begin()->value);
+        move_column = std::move(_data.begin()->column);
+        count -= move_value.size();
+        _data.pop_front();
+        return breakage;
+    }
+private:
+    bool _breakpoint = false;
+    std::list<line> _data;
+    static constexpr size_t _max_size = 1000000000 / sizeof(std::pair<size_t, float>);
+};
 // std::vector<float> distance_map(const mesh::Poly3gon& data)
 // {
 //     size_t n = data.v.size();
@@ -98,77 +158,104 @@ inline bool equals(const std::weak_ptr<T> t, const std::shared_ptr<U> u)
 //     return end;
 // }
 
-void convert (mesh::Poly3gon& data,double radius_smoothing = 1,double smooth_coef = 1)
+void convert_cached (mesh::Poly3gon& data,double radius_smoothing = 1,double smooth_coef = 1)
 {
     size_t size = data.v.size();
     double r_inv = 1/radius_smoothing;
-    //std::vector<float> distance_map(size * (size - 1) / 2 );
+    Cache_crm saved_value(size + 1);
     std::vector<mesh::Vec3f> shift(size);
+
+    size_t read_counter = 0;
+    size_t cal_counter = 0;
+    size_t good_cal = 0;
     for(size_t i = 0; i < size; ++i)
     {
         float mass = 0;
         mesh::Vec3f b;
-        for(size_t j = 0; j < size; ++j)
+
+        std::queue<size_t> computed_column;
+        std::queue<float> computed_value;
+        std::queue<size_t> to_cache_column;
+        std::queue<float> to_cache_value;
+
+        size_t j = saved_value.pop(computed_column, computed_value);
+
+        while( !computed_value.empty())
         {
-            const float distance = mesh::norm(data.v[i]->pos - data.v[j]->pos);
-            //distance_map.push_back(distance);
-            if (distance < radius_smoothing)
-            {
-                const float m = static_cast<float>(1 - distance * r_inv);
-                b += data.v[j]->pos * m;
-                mass += m;
-            }
+            b += data.v[computed_column.front()]->pos * computed_value.front();
+            mass += computed_value.front();
+
+            computed_value.pop();
+            computed_column.pop();
+            ++read_counter;
         }
 
-        // for(size_t j = 0 ; j < i; ++j)
-        // {
-        //     const float distance = distance_map[i + j * size];
-        //     if(distance < radius_smoothing)
-        //     {
-        //         const float m = static_cast<float>(1 - distance * r_inv);
-        //         b += data.v[j]->pos * m;
-        //         mass += m;
-        //     }
-        // }
+        for(; j < size; ++j)
+        {
+            const float distance = mesh::norm(data.v[i]->pos - data.v[j]->pos);
+            ++cal_counter;
+            if (distance < radius_smoothing)
+            {
+                ++good_cal;
+                float m = static_cast<float>(1 - distance * r_inv);
+                b += data.v[j]->pos * m;
+                mass += m;
+
+                if(saved_value())
+                {
+                    to_cache_column.push(j - i);
+                    to_cache_value.push(m);
+                }
+            }
+        }
+        saved_value.push(to_cache_column, to_cache_value);
+
         if (mass > 0.0f)
             b /= mass;
         shift[i] = (1 - smooth_coef) * b + smooth_coef * data.v[i]->pos;
     }
-
+    float tmp = 1.0f /size;
+    std::cout << read_counter << ": read. " << cal_counter << ": cal =" << 200.0f * cal_counter * tmp * tmp - 100.0f << " % max " << good_cal << ": good_cal ="<< 100.0f *static_cast<float>(good_cal) / cal_counter <<" %" << std::endl;
     for(size_t i = 0; i < shift.size(); ++i)
     {
         data.v[i]->mov(shift[i]);
     }
 }
-// void convert( mesh::Poly3gon& data)
-// {
-//     std::vector<mesh::Vec3f> to_move(data.v.size());
-//
-//     for(size_t i = 0; i < data.v.size(); ++i)
-//     {
-//         mesh::Vec3f sum_normal;
-//         mesh::Vec3f normal;
-//         //to_move[i] = data.v[i]->pos;
-//         for(size_t j = 0; j < data.v[i]->f.size(); ++j)
-//         {
-//             mesh::Facet triangle = *data.v[i]->f[j].lock();
-//             normal = mesh::get_normal(triangle);
-//             sum_normal += normal;
-//             to_move[i] += mesh::norm(normal) * mesh::get_center(triangle);
-//         }
-//
-//     //to_move[i] += 3 * data.v[i]->pos;
-//
-//     if (sum_normal.x > std::numeric_limits<float>::epsilon()
-//     &&  sum_normal.y > std::numeric_limits<float>::epsilon()
-//     &&  sum_normal.z > std::numeric_limits<float>::epsilon())
-//             to_move[i] /= sum_normal;
-//     }
-//     for(size_t i = 0; i < data.v.size(); ++i)
-//     {
-//         data.v[i]->mov(to_move[i]);
-//     }
-// }
+
+void convert (mesh::Poly3gon& data,double radius_smoothing = 1,double smooth_coef = 1)
+{
+    size_t size = data.v.size();
+    double r_inv = 1/radius_smoothing;
+    std::vector<mesh::Vec3f> shift(size);
+    size_t cal_counter = 0;
+    for(size_t i = 0; i < size; ++i)
+    {
+        float mass = 0;
+        mesh::Vec3f b;
+
+        for(size_t j = 0; j < size; ++j)
+        {
+            const float distance = mesh::norm(data.v[i]->pos - data.v[j]->pos);
+            ++ cal_counter;
+            if (distance < radius_smoothing)
+            {
+                float m = static_cast<float>(1 - distance * r_inv);
+                b += data.v[j]->pos * m;
+                mass += m;
+            }
+        }
+
+        if (mass > 0.0f)
+            b /= mass;
+        shift[i] = (1 - smooth_coef) * b + smooth_coef * data.v[i]->pos;
+    }
+    std::cout << cal_counter<< "cal " << std::endl;
+    for(size_t i = 0; i < shift.size(); ++i)
+    {
+        data.v[i]->mov(shift[i]);
+    }
+}
+
 
 
 int main(int argc, char ** argv)
@@ -179,6 +266,7 @@ int main(int argc, char ** argv)
         exit (-2);
     }
     mesh::Poly3gon res;
+    mesh::Poly3gon test;
     std::string text;
     std::string file(argv[1]);
     file = file.substr(0,file.size() - 4);
@@ -186,7 +274,7 @@ int main(int argc, char ** argv)
     double smooth_coef = std::atof(argv[2]);
     double radius_smoothing = std::atof(argv[3]);
 
-    if(res.loadSTLBin(std::string(file + ".stl"), text))
+    if(res.loadSTLBin(std::string(file + ".stl"), text) && test.loadSTLBin(std::string(file + ".stl"), text) )
     {
         start_volume = res.volume();
         std::cout << "load suc, tr:" << res.f.size()<< ", points:" << res.v.size() << ", volume:" << start_volume << std::endl;
@@ -197,7 +285,13 @@ int main(int argc, char ** argv)
         exit (-1);
     }
 
+    time_t t_start = time(NULL);
     convert(res, radius_smoothing, smooth_coef);
+    time_t t_1 = time(NULL);
+    convert_cached(test, radius_smoothing, smooth_coef);
+    time_t t_2 = time(NULL);
+
+    std::cout << "no cache = " << t_1 - t_start << std::endl << "cache = " << t_2 - t_1 << std::endl;
 
     std::cout << res.volume() << " = " <<100.0 * (start_volume - res.volume()) / start_volume  <<" %" << std::endl;
     res.saveSTLBin(std::string(file + "_work.stl"), text);
