@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.1.0)
 project(relax)
 
 
-add_library(libMesh STATIC
+add_library( Mesh STATIC
     libMesh/vec3f.cpp
     libMesh/mesh.cpp
 )
@@ -30,7 +30,7 @@ add_executable(relax
 )
 
 target_link_libraries(relax PRIVATE
-    libMesh
+    Mesh
 )
 
 set_target_properties(relax PROPERTIES

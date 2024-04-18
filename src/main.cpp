@@ -196,10 +196,8 @@ int main(int argc, char ** argv)
         std::cerr << "can't load" << std::endl;
         exit (-1);
     }
-    //saveSTLBin(std::string(file + "_save.stl"), text, res);
 
     convert(res, radius_smoothing, smooth_coef);
-        //std::cout << "volume:" << get_volume(res)<< std::endl;
 
     std::cout << res.volume() << " = " <<100.0 * (start_volume - res.volume()) / start_volume  <<" %" << std::endl;
     res.saveSTLBin(std::string(file + "_work.stl"), text);

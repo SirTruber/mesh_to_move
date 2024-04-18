@@ -26,9 +26,9 @@ void Vertex::mov(float a, float b, float c)
     pos = Vec3f(a,b,c);
 };
 
-void Vertex::join(std::shared_ptr<Facet> triangle)
+void Vertex::join(Facet & triangle)
 {
-    f.push_back(triangle);
+    f.push_back(&triangle);
 };
 
 Vec3f mesh::operator - (const Vertex & a, const Vertex & b)
@@ -46,11 +46,11 @@ inline bool mesh::operator != (const Vertex & a, const Vertex & b)
     return a.pos != b.pos;
 };
 
-Facet::Facet(std::shared_ptr<Vertex> a, std::shared_ptr<Vertex> b, std::shared_ptr<Vertex> c)
+Facet::Facet(Vertex & a, Vertex & b, Vertex & c)
 {
-    v[0] = a;
-    v[1] = b;
-    v[2] = c;
+    v[0] = &a;
+    v[1] = &b;
+    v[2] = &c;
 };
 
 Facet::Facet(const Facet& other)
@@ -73,14 +73,14 @@ Facet& Facet::operator =(const Facet& other)
 
 inline Vec3f Facet::center()
 {
-    Vec3f v = this->v[0].lock()->pos + this->v[1].lock()->pos + this->v[2].lock()->pos;
-    return 1.f/3.f * v;
+    Vec3f vec = v[0]->pos + v[1]->pos + v[2]->pos;
+    return 1.f/3.f * vec;
 };
 
 inline Vec3f Facet::normal()
 {
-    const Vec3f v1 = *v[1].lock() - *v[0].lock();
-    const Vec3f v2 = *v[2].lock() - *v[0].lock();
+    const Vec3f v1 = *v[1] - *v[0];
+    const Vec3f v2 = *v[2] - *v[0];
 
     return  v1 % v2;
 };
@@ -111,18 +111,18 @@ void Poly3gon::push_back(const Vertex& v1, const Vertex& v2, const Vertex& v3)
         }
         else
         {
-            v.push_back(std::make_shared<Vertex>(v_old[i]->pos));
+            v.push_back(std::make_unique<Vertex>(v_old[i]->pos));
             v_n[i] = v.size() - 1;
             _unique_v.emplace(hash, v_n[i]);
         }
     }
 
-    f.push_back(std::make_shared<Facet>( v[v_n[0]], v[v_n[1]], v[v_n[2]] ));
+    f.push_back(std::make_unique<Facet>( *v[v_n[0]], *v[v_n[1]], *v[v_n[2]] ));
     size_t f_n = f.size() - 1;
 
-    v[v_n[0]]->join( f[f_n]);
-    v[v_n[1]]->join( f[f_n]);
-    v[v_n[2]]->join( f[f_n]);
+    v[v_n[0]]->join( *f[f_n]);
+    v[v_n[1]]->join( *f[f_n]);
+    v[v_n[2]]->join( *f[f_n]);
 };
 
 bool Poly3gon::loadSTLText (const std::string& filename, std::string& text)
@@ -185,9 +185,9 @@ bool Poly3gon::saveSTLText(const std::string& filename, const std::string& text)
     for (std::uint32_t i = 0; i < num; ++i)
     {
         vec[0] = f[i]->normal();
-        vec[1] = f[i]->v[0].lock()->pos;
-        vec[2] = f[i]->v[1].lock()->pos;
-        vec[3] = f[i]->v[2].lock()->pos;
+        vec[1] = f[i]->v[0]->pos;
+        vec[2] = f[i]->v[1]->pos;
+        vec[3] = f[i]->v[2]->pos;
 
         vec[0] /= norm(vec[0]);
         output << "facet normal " << vec[0].x << " " << vec[0].y << " " << vec[0].z
@@ -225,9 +225,9 @@ bool Poly3gon::saveSTLBin (const std::string& filename, const std::string& text)
     for (std::uint32_t i = 0; i < num; ++i)
     {
         vec[0] = f[i]->normal().set_norm();
-        vec[1] = f[i]->v[0].lock()->pos;
-        vec[2] = f[i]->v[1].lock()->pos;
-        vec[3] = f[i]->v[2].lock()->pos;
+        vec[1] = f[i]->v[0]->pos;
+        vec[2] = f[i]->v[1]->pos;
+        vec[3] = f[i]->v[2]->pos;
 
         for(size_t j = 0 ; j < 4; ++j)
         {
@@ -247,7 +247,7 @@ float Poly3gon::volume()
 {
     float total_volume = 0.0f;
     for (size_t i = 0; i < f.size(); ++i)
-        total_volume += f[i]->v[0].lock()->pos * f[i]->normal();
+        total_volume += f[i]->v[0]->pos * f[i]->normal();
 
     total_volume *= 1.f/6.f;
     return total_volume;
@@ -262,7 +262,7 @@ float Poly3gon::area()
     return total_area;
 }
 
-
+/*
 std::size_t VHash::operator()(const mesh::Vertex* v) const noexcept
 {
     size_t hash;
@@ -281,4 +281,4 @@ std::size_t VHash::operator()(const mesh::Vertex* v) const noexcept
     hash ^= (hash >> 11);
     hash += (hash << 15);
     return hash;
-}
+}*/
