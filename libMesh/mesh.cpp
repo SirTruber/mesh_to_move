@@ -1,4 +1,5 @@
 #include <vector>
+#include <queue>
 #include <algorithm>
 #include <string>
 #include <cstdint>
@@ -99,6 +100,7 @@ void Poly3gon::push_back(const Vertex& v1, const Vertex& v2, const Vertex& v3)
     for (size_t i = 0; i < 3; ++i)
     {
         std::string hash = std::to_string(v_old[i]->pos.x) + ";" + std::to_string(v_old[i]->pos.y) + ";" + std::to_string(v_old[i]->pos.z);
+
         auto it = _unique_v.find(hash);
         if (it != _unique_v.end())
         {
@@ -123,38 +125,48 @@ void Poly3gon::push_back(const Vertex& v1, const Vertex& v2, const Vertex& v3)
 bool Poly3gon::loadSTLText (const std::string& filename, std::string& text)
 {
     std::ifstream input(filename);
-    std::istringstream in;
     if (!input)
         return false;
-    std::string line;
-    const std::string endsolid("endsolid");
-    const std::string outer_loop("outer loop");
-    const std::string endfacet("endfacet");
+    std::string buffer;
 
+    std::getline(input >> std::ws, buffer);
+
+    if(buffer.find("solid") == std::string::npos)
+        return false;
+    text = buffer.substr(6);
+    std::cout << text << std::endl;
     float v[12];
     Vertex vec[3];
 
-    std::getline(input >> std::ws, line);
-
-    while(line != endsolid)
+    size_t i = 0;
+    while (!(input.eof() || input.fail()))
     {
-        while(line != outer_loop)
-            std::getline(input >> std::ws, line);
-
-        for(size_t i = 0; i < 3; ++i)
+        std::queue<std::string> tokens;
+        const std::string vertex("vertex");
+        if(i == 3)
         {
-            std::getline(input >> std::ws,line);
-            in.str(line);
-            in >> v[3 * i]
-               >> v[3 * i + 1]
-               >> v[3 * i + 2];
-               vec[i].mov(v[3 * i], v[3 * i + 1], v[3 * i + 2]);
+            this->push_back(vec[0],vec[1],vec[2]);
+            i = 0;
         }
-        this->push_back(vec[0],vec[1],vec[2]);
 
-        while(line != endfacet)
-            std::getline(input >> std::ws, line);
-        std::getline(input >> std::ws, line);
+        std::getline(input >> std::ws, buffer);
+        std::istringstream line(buffer);
+        while(!(line.eof() || line.fail()))
+        {
+            line >> buffer;
+            tokens.push(buffer);
+        }
+
+        if(tokens.front() == vertex)
+        {
+            tokens.pop();
+            v[3 * i    ] = std::atof(tokens.front().c_str()); tokens.pop();
+            v[3 * i + 1] = std::atof(tokens.front().c_str()); tokens.pop();
+            v[3 * i + 2] = std::atof(tokens.front().c_str()); tokens.pop();
+
+            vec[i].mov(v[3 * i], v[3 * i + 1], v[3 * i + 2]);
+            ++i;
+        }
     }
     _unique_v.clear();
     input.close();
