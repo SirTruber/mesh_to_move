@@ -6,6 +6,7 @@
 #include <unordered_set>
 
 #include "mesh.h"
+
 namespace mesh
 {
 using line = std::queue<std::pair<size_t, float>>;

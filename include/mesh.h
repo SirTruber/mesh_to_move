@@ -28,12 +28,6 @@ Vec3f operator - (const Vertex & a, const Vertex & b);
 bool operator == (const Vertex & a, const Vertex & b);
 bool operator != (const Vertex & a, const Vertex & b);
 
-
-// struct VHash
-// {
-//     size_t operator()(const mesh::Vertex* v) const noexcept; // Jenkins one-at-a-time hash
-// };
-
 class Facet
 {
 public:

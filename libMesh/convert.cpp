@@ -6,9 +6,44 @@
 #include <limits>
 
 #include "../include/convert.h"
+#include "../include/log.h"
 
 using namespace mesh;
 
+void mesh::convert_direct (Poly3gon& data,double radius_smoothing,double smooth_coef)
+{
+    const size_t size = data.v.size();
+    std::vector<Vec3f> shift(size);
+    //size_t good_cal = 0;
+    for(size_t i = 0; i < size; ++i)
+    {
+        float mass = 0;
+        Vec3f b;
+
+        for(size_t j = 0; j < size; ++j)
+        {
+            const float distance = norm(data.v[i]->pos - data.v[j]->pos);
+            if (distance < radius_smoothing)
+            {
+                //++good_cal;
+                const float m = static_cast<float>(radius_smoothing - distance);
+                b += data.v[j]->pos * m;
+                mass += m;
+            }
+        }
+
+        if (mass > 0.0f)
+            b /= mass;
+        shift[i] = (1 - smooth_coef) * b + smooth_coef * data.v[i]->pos;
+    }
+    // std::cout << "direct: " <<
+    // std::endl <<"cal : " << size * size <<
+    // std::endl <<"good_cal : " << good_cal <<" = "<< 100.0f * static_cast<float>(good_cal) / (size*size) <<" % cal" << std::endl << std::endl;
+    for(size_t i = 0; i < shift.size(); ++i)
+    {
+        data.v[i]->mov(shift[i]);
+    }
+};
 
 Cache_crm::Cache_crm(size_t size) :_data(size)
 {};
@@ -48,6 +83,64 @@ size_t Cache_crm::pop(size_t i, line & move_value)
     return breakage;
 };
 
+void mesh::convert_cached (Poly3gon& data,double radius_smoothing,double smooth_coef)
+{
+    const size_t size = data.v.size();
+    Cache_crm saved_value(size);
+    std::vector<Vec3f> shift(size);
+
+    // size_t read_counter = 0;
+    // size_t cal_counter = 0;
+    // size_t good_cal = 0;
+    for(size_t i = 0; i < size; ++i)
+    {
+        float mass = static_cast<float>(radius_smoothing);
+        Vec3f b = data.v[i]->pos * mass;
+
+        line computed_value;
+        line to_cache_value;
+
+        size_t j = saved_value.pop(i,computed_value) + 1;
+
+        while( !computed_value.empty())
+        {
+            b += data.v[computed_value.front().first]->pos * computed_value.front().second;
+            mass += computed_value.front().second;
+
+            computed_value.pop();
+            //++read_counter;
+        }
+
+        for(; j < size; ++j)
+        {
+            const float distance = norm(data.v[i]->pos - data.v[j]->pos);
+            //++cal_counter;
+            if (distance < radius_smoothing)
+            {
+                //++good_cal;
+                float m = static_cast<float>(radius_smoothing - distance);
+                b += data.v[j]->pos * m;
+                mass += m;
+
+                if(saved_value())
+                    to_cache_value.emplace(j,m);
+            }
+        }
+        saved_value.push(i, to_cache_value);
+
+        if (mass > 0.0f)
+            b /= mass;
+        shift[i] = (1 - smooth_coef) * b + smooth_coef * data.v[i]->pos;
+    }
+    // std::cout << "cached:" <<
+    // std::endl << "read : " << read_counter <<
+    // std::endl << "cal : " << cal_counter << " = " << 100.0f * static_cast<float> (cal_counter) / (size*size) << " % max " <<
+    // std::endl << "good_cal : " << good_cal <<" = "<< 100.0f * static_cast<float>(good_cal) / cal_counter <<" % cal" << std::endl << std::endl;
+    for(size_t i = 0; i < shift.size(); ++i)
+    {
+        data.v[i]->mov(shift[i]);
+    }
+};
 
 Cubic_node::Cubic_node(const int a, const int b, const int c): pos(a,b,c)
 {};
@@ -73,7 +166,6 @@ size_t CHash::operator()(const Vec3i & data) const noexcept
     std::string hash = std::to_string(data.x) + ";" + std::to_string(data.y) + ";" + std::to_string(data.z);
     return std::hash<std::string>{}(hash);
 }
-
 
 Cubic_view::Cubic_view(const Poly3gon& data, const double radius_smoothing)
 {
@@ -145,107 +237,16 @@ bool Cubic_view::step()
     return _cur != _data.end();
 };
 
-void mesh::convert_direct (Poly3gon& data,double radius_smoothing,double smooth_coef)
-{
-    const size_t size = data.v.size();
-    std::vector<Vec3f> shift(size);
-    size_t good_cal = 0;
-    for(size_t i = 0; i < size; ++i)
-    {
-        float mass = 0;
-        Vec3f b;
-
-        for(size_t j = 0; j < size; ++j)
-        {
-            const float distance = norm(data.v[i]->pos - data.v[j]->pos);
-            if (distance < radius_smoothing)
-            {
-                ++good_cal;
-                const float m = static_cast<float>(radius_smoothing - distance);
-                b += data.v[j]->pos * m;
-                mass += m;
-            }
-        }
-
-        if (mass > 0.0f)
-            b /= mass;
-        shift[i] = (1 - smooth_coef) * b + smooth_coef * data.v[i]->pos;
-    }
-    std::cout << "direct: " <<
-    std::endl <<"cal : " << size * size <<
-    std::endl <<"good_cal : " << good_cal <<" = "<< 100.0f * static_cast<float>(good_cal) / (size*size) <<" % cal" << std::endl << std::endl;
-    for(size_t i = 0; i < shift.size(); ++i)
-    {
-        data.v[i]->mov(shift[i]);
-    }
-};
-
-void mesh::convert_cached (Poly3gon& data,double radius_smoothing,double smooth_coef)
-{
-    const size_t size = data.v.size();
-    Cache_crm saved_value(size);
-    std::vector<Vec3f> shift(size);
-
-    size_t read_counter = 0;
-    size_t cal_counter = 0;
-    size_t good_cal = 0;
-    for(size_t i = 0; i < size; ++i)
-    {
-        float mass = static_cast<float>(radius_smoothing);
-        Vec3f b = data.v[i]->pos * mass;
-
-        line computed_value;
-        line to_cache_value;
-
-        size_t j = saved_value.pop(i,computed_value) + 1;
-
-        while( !computed_value.empty())
-        {
-            b += data.v[computed_value.front().first]->pos * computed_value.front().second;
-            mass += computed_value.front().second;
-
-            computed_value.pop();
-            ++read_counter;
-        }
-
-        for(; j < size; ++j)
-        {
-            const float distance = norm(data.v[i]->pos - data.v[j]->pos);
-            ++cal_counter;
-            if (distance < radius_smoothing)
-            {
-                ++good_cal;
-                float m = static_cast<float>(radius_smoothing - distance);
-                b += data.v[j]->pos * m;
-                mass += m;
-
-                if(saved_value())
-                    to_cache_value.emplace(j,m);
-            }
-        }
-        saved_value.push(i, to_cache_value);
-
-        if (mass > 0.0f)
-            b /= mass;
-        shift[i] = (1 - smooth_coef) * b + smooth_coef * data.v[i]->pos;
-    }
-    std::cout << "cached:" <<
-    std::endl << "read : " << read_counter <<
-    std::endl << "cal : " << cal_counter << " = " << 100.0f * static_cast<float> (cal_counter) / (size*size) << " % max " <<
-    std::endl << "good_cal : " << good_cal <<" = "<< 100.0f * static_cast<float>(good_cal) / cal_counter <<" % cal" << std::endl << std::endl;
-    for(size_t i = 0; i < shift.size(); ++i)
-    {
-        data.v[i]->mov(shift[i]);
-    }
-};
-
 void mesh::convert_cubic (Poly3gon& data,double radius_smoothing,double smooth_coef)
 {
     const size_t size = data.v.size();
-    size_t read_counter = 0;
-    size_t cal_counter = 0;
-    size_t good_cal = 0;
-    if(radius_smoothing < std::numeric_limits<double>::epsilon())
+    // size_t read_counter = 0;
+    // size_t cal_counter = 0;
+    // size_t good_cal = 0;
+    if (std::abs(1.0 - smooth_coef) < std::numeric_limits<double>::epsilon())
+        return;
+
+    if(std::abs(radius_smoothing) < std::numeric_limits<double>::epsilon())
     {
         for(size_t i = 0; i < size; ++i)
             data.v[i]->mov(smooth_coef * data.v[i]->pos);
@@ -281,12 +282,12 @@ void mesh::convert_cubic (Poly3gon& data,double radius_smoothing,double smooth_c
 
                 computed_value.pop();
 
-                ++read_counter;
+                //++read_counter;
             }
             for(auto fast = next(neighbours_cube.begin()); fast != neighbours_cube.end(); ++fast)
             {
                 const float distance = norm(data.v[*slow]->pos - data.v[*fast]->pos);
-                ++cal_counter;
+                //++cal_counter;
 
                 if (distance < radius_smoothing)
                 {
@@ -295,7 +296,7 @@ void mesh::convert_cubic (Poly3gon& data,double radius_smoothing,double smooth_c
                     b += data.v[*fast]->pos * m;
                     mass += m;
 
-                    ++good_cal;
+                    //++good_cal;
                     if(saved_value())
                         to_cache_value.emplace(*fast,m);
                 }
@@ -321,8 +322,9 @@ void mesh::convert_cubic (Poly3gon& data,double radius_smoothing,double smooth_c
     }
     while(cv.step());
 
-    std::cout << "cubic: " <<
-    std::endl << "read :" << read_counter <<
-    std::endl <<"cal : " << cal_counter << " = " << 100.0f * static_cast<float> (cal_counter) / (size*size) << " % max " <<
-    std::endl <<"good_cal : " << good_cal <<" = "<< 100.0f * static_cast<float>(good_cal) / (cal_counter) <<" % cal" << std::endl << std::endl;
+    // std::cerr << "test";
+    // std::cout << "cubic: " <<
+    // std::endl << "read :" << read_counter <<
+    // std::endl << "cal : " << cal_counter << " = " << 100.0f * static_cast<float> (cal_counter) / (size*size) << " % max" <<
+    // std::endl << "good_cal : " << good_cal <<" = "<< 100.0f * static_cast<float> (good_cal) / (cal_counter) << " % cal" << std::endl << std::endl;
 };
