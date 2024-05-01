@@ -15,7 +15,7 @@ using namespace mesh;
 Vertex::Vertex(const Vec3f& vec): pos(vec)
 {};
 
-Vertex::Vertex(float a, float b, float c): pos(a,b,c)
+Vertex::Vertex(float a, float b, float c): pos{a,b,c}
 {};
 
 void Vertex::mov(const Vec3f &vec)
@@ -25,7 +25,7 @@ void Vertex::mov(const Vec3f &vec)
 
 void Vertex::mov(float a, float b, float c)
 {
-    pos = Vec3f(a,b,c);
+    pos = Vec3f{a,b,c};
 };
 
 void Vertex::join(Facet & triangle)
@@ -73,13 +73,13 @@ Facet& Facet::operator =(const Facet& other)
     return * this;
 };
 
-inline Vec3f Facet::center()
+Vec3f Facet::center() const
 {
-    Vec3f vec = v[0]->pos + v[1]->pos + v[2]->pos;
+    const Vec3f vec = v[0]->pos + v[1]->pos + v[2]->pos;
     return 1.f/3.f * vec;
 };
 
-inline Vec3f Facet::normal()
+Vec3f Facet::normal() const
 {
     const Vec3f v1 = *v[1] - *v[0];
     const Vec3f v2 = *v[2] - *v[0];
@@ -87,7 +87,7 @@ inline Vec3f Facet::normal()
     return  v1 % v2;
 };
 
-inline float Facet::area()
+float Facet::area() const
 {
     return  0.5 * norm(normal());
 };
@@ -99,7 +99,7 @@ void Poly3gon::push_back(const Vertex& v1, const Vertex& v2, const Vertex& v3)
 
     for (size_t i = 0; i < 3; ++i)
     {
-        std::string hash = std::to_string(v_old[i]->pos.x) + ";" + std::to_string(v_old[i]->pos.y) + ";" + std::to_string(v_old[i]->pos.z);
+        std::string hash = std::to_string(v_old[i]->pos[0]) + ";" + std::to_string(v_old[i]->pos[1]) + ";" + std::to_string(v_old[i]->pos[2]);
 
         auto it = _unique_v.find(hash);
         if (it != _unique_v.end())
@@ -134,7 +134,6 @@ bool Poly3gon::loadSTLText (const std::string& filename, std::string& text)
     if(buffer.find("solid") == std::string::npos)
         return false;
     text = buffer.substr(6);
-    std::cout << text << std::endl;
     float v[12];
     Vertex vec[3];
 
@@ -222,11 +221,11 @@ bool Poly3gon::saveSTLText(const std::string& filename, const std::string& text)
         vec[3] = f[i]->v[2]->pos;
 
         vec[0] /= norm(vec[0]);
-        output << "facet normal " << vec[0].x << " " << vec[0].y << " " << vec[0].z
+        output << "facet normal " << vec[0][0] << " " << vec[0][1] << " " << vec[0][1]
         << std::endl << "outer loop"
-        << std::endl << "vertex " << vec[1].x << " " << vec[1].y << " " << vec[1].z
-        << std::endl << "vertex " << vec[2].x << " " << vec[2].y << " " << vec[2].z
-        << std::endl << "vertex " << vec[3].x << " " << vec[3].y << " " << vec[3].z
+        << std::endl << "vertex " << vec[1][0] << " " << vec[1][1] << " " << vec[1][2]
+        << std::endl << "vertex " << vec[2][0] << " " << vec[2][1] << " " << vec[2][2]
+        << std::endl << "vertex " << vec[3][0] << " " << vec[3][1] << " " << vec[3][2]
         << std::endl << "endloop" << std::endl << "endfacet" << std::endl;
     }
     output << "endsolid";
@@ -262,11 +261,9 @@ bool Poly3gon::saveSTLBin (const std::string& filename, const std::string& text)
         vec[3] = f[i]->v[2]->pos;
 
         for(size_t j = 0 ; j < 4; ++j)
-        {
-            pos[3 * j    ] = vec[j].x;
-            pos[3 * j + 1] = vec[j].y;
-            pos[3 * j + 2] = vec[j].z;
-        }
+            for(size_t k = 0; k < 3; ++k)
+                pos[3 * j + k] = vec[j][k];
+
         output.write(reinterpret_cast<char*>(pos), sizeof(pos));
         output.write(message, 2);
     }
@@ -275,7 +272,7 @@ bool Poly3gon::saveSTLBin (const std::string& filename, const std::string& text)
     return true;
 };
 
-float Poly3gon::volume()
+float Poly3gon::volume() const
 {
     float total_volume = 0.0f;
     for (size_t i = 0; i < f.size(); ++i)
@@ -285,7 +282,7 @@ float Poly3gon::volume()
     return total_volume;
 };
 
-float Poly3gon::area()
+float Poly3gon::area() const
 {
     float total_area = 0.0f;
     for(size_t i = 0; i < f.size(); ++i)

@@ -3,8 +3,7 @@ cmake_minimum_required(VERSION 3.1.0)
 project(relax)
 
 
-add_library( Mesh STATIC
-    libMesh/vec3f.cpp
+add_library( Mesh STATICS
     libMesh/mesh.cpp
     libMesh/convert.cpp
 )
@@ -22,7 +21,7 @@ set(project_headers
 set(project_compile_flags "-march=native -O2 -ftree-vectorize")
 
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${project_compile_flags}")
 

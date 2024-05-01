@@ -6,6 +6,8 @@
 
 #include "vec3f.h"
 
+using namespace LA;
+
 namespace mesh
 {
 class Facet;
@@ -39,9 +41,9 @@ public:
     Facet(const Facet& other);
     Facet& operator =(const Facet& other);
 
-    Vec3f center();
-    Vec3f normal();
-    float area();
+    Vec3f center() const;
+    Vec3f normal() const;
+    float area()   const;
 };
 
 class Poly3gon
@@ -56,8 +58,8 @@ public:
     bool saveSTLText (const std::string& filename, const std::string& text);
     bool saveSTLBin  (const std::string& filename, const std::string& text);
 
-    float volume();
-    float area();
+    float volume() const;
+    float area()   const;
 private:
     std::unordered_map< std::string ,size_t> _unique_v;
 private:

@@ -9,6 +9,48 @@
 
 namespace mesh
 {
+
+enum FileFormat{
+    STL_Binary,
+    STL_Text
+};
+
+struct Convert_param
+{
+    double smooth_coef = 1.0;
+    double radius_smoothing = 1.0;
+    float max_diff = 0.0f;
+    bool operator ! () const
+    {
+        return ! std::abs(smooth_coef - 1.0) < std::numeric_limits<double>::epsilon() &&
+                 std::abs(radius_smoothing - 1.0) < std::numeric_limits<double>::epsilon() &&
+                 std::abs(max_diff) < std::numeric_limits<float>::epsilon();
+    }
+};
+
+class STLfile
+{
+public:
+    std::string filename;
+public:
+    STLfile(std::string& file);
+
+    inline float triangles_num() const {return data.f.size();};
+    inline float points_num()    const {return data.v.size();};
+    inline float volume()        const {return data.volume();};
+    inline float diff()          const {return start_volume - data.volume();}
+    inline float percent_diff()  const {return (100.0f*start_volume - 100.0f*data.volume())/start_volume;};
+
+    void convert(const Convert_param & param);
+
+    bool save(std::string& file, const FileFormat format);
+
+private:
+    float start_volume;
+    mesh::Poly3gon data;
+    std::string text;
+};
+
 using line = std::queue<std::pair<size_t, float>>;
 
 class Cache_crm
@@ -50,7 +92,7 @@ class Cubic_view
 {
 public:
     Cubic_view() = delete;
-    Cubic_view(const Poly3gon& data, const double radius_smoothing = 1);
+    Cubic_view(const Poly3gon& data, const double radius_smoothing);
 
     std::list<size_t> get_current();
     std::list<size_t> get_neighbours();
@@ -61,10 +103,10 @@ private:
     std::unordered_map<Vec3i, Cubic_node, CHash>::iterator _cur;
 };
 
-void convert_direct (mesh::Poly3gon& data,double radius_smoothing = 1,double smooth_coef = 1);
+void convert_direct (Poly3gon& data, double radius_smoothing, double smooth_coef);
 
-void convert_cached (mesh::Poly3gon& data,double radius_smoothing = 1,double smooth_coef = 1);
+void convert_cached (Poly3gon& data, double radius_smoothing, double smooth_coef);
 
-void convert_cubic (Poly3gon& data,double radius_smoothing = 1,double smooth_coef = 1);
+void convert_cubic  (Poly3gon& data, double radius_smoothing,double smooth_coef);
 
 }

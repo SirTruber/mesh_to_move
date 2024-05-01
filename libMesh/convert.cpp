@@ -10,7 +10,38 @@
 
 using namespace mesh;
 
-void mesh::convert_direct (Poly3gon& data,double radius_smoothing,double smooth_coef)
+STLfile::STLfile(std::string& file): filename(file)
+{
+    if(!data.loadSTLText(file,text)) //Try to read as ASCII
+        if(!data.loadSTLBin(file,text))
+        {
+            std::cerr << "can't load " << file << std::endl;
+            //exit(-1);
+        }
+    start_volume = data.volume();
+};
+
+void STLfile::convert(const Convert_param & param)
+{
+    convert_cubic(data, param.radius_smoothing, param.smooth_coef);
+};
+
+bool STLfile::save(std::string& file, FileFormat format)
+{
+    switch (format)
+    {
+    case FileFormat::STL_Binary:
+        return data.saveSTLBin(file, text);
+
+    case FileFormat::STL_Text:
+        return data.saveSTLText(file, text);
+
+    default:
+        return false;
+    }
+};
+
+void convert_direct (Poly3gon& data,double radius_smoothing,double smooth_coef)
 {
     const size_t size = data.v.size();
     std::vector<Vec3f> shift(size);
@@ -163,7 +194,7 @@ void Cubic_node::clear()
 
 size_t CHash::operator()(const Vec3i & data) const noexcept
 {
-    std::string hash = std::to_string(data.x) + ";" + std::to_string(data.y) + ";" + std::to_string(data.z);
+    std::string hash = std::to_string(data[0]) + ";" + std::to_string(data[1]) + ";" + std::to_string(data[2]);
     return std::hash<std::string>{}(hash);
 }
 
@@ -176,9 +207,9 @@ Cubic_view::Cubic_view(const Poly3gon& data, const double radius_smoothing)
     for(size_t i = 0; i < size; ++i)
     {
         Vec3f t = data.v[i]->pos;
-        if( std::abs(t.x) > max_value ||
-            std::abs(t.y) > max_value ||
-            std::abs(t.z) > max_value)
+        if( std::abs(t[0]) > max_value ||
+            std::abs(t[1]) > max_value ||
+            std::abs(t[2]) > max_value)
             {
                 std::cerr << i << " : int overflow"<<std::endl;
                 continue;
@@ -205,9 +236,9 @@ std::list<size_t> Cubic_view::get_current()
 std::list<size_t> Cubic_view::get_neighbours()
 {
     std::list<size_t> res;
-    int x0 = _cur->first.x;
-    int y0 = _cur->first.y;
-    int z0 = _cur->first.z;
+    int x0 = _cur->first[0];
+    int y0 = _cur->first[1];
+    int z0 = _cur->first[2];
     for(int i = - 1; i < 2; ++i)
     {
         for(int j = -1; j < 2; ++j)
