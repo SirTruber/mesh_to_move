@@ -323,7 +323,7 @@ void mesh::convert_cubic (Poly3gon& data,double radius_smoothing,double smooth_c
                 if (distance < radius_smoothing)
                 {
 
-                    float m = static_cast<float>(radius_smoothing - distance);
+                    float m = static_cast<float>(std::exp(distance - radius_smoothing));
                     b += data.v[*fast]->pos * m;
                     mass += m;
 
